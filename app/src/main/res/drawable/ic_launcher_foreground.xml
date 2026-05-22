@@ -1,0 +1,35 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Outer clock-block segments (representing Sunsama / time rings) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#A78BFA"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M 54 22 A 32 32 0 1 1 53.9 22" />
+
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:pathData="M 54 22 A 32 32 0 0 1 86 54" />
+
+    <!-- Centered checkmark with premium rounded ends and visual depth -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 36,54 L 48,66 L 72,38" />
+        
+    <!-- Lightning dot representing AI speed -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M 72,28 A 4 4 0 1 1 71.99 28" />
+</vector>

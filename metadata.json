@@ -1,0 +1,6 @@
+{
+  "name": "FlowPlan AI",
+  "description": "Smart daily & weekly planner powered by Gemini. Parse raw text into structured tasks, run a built-in Pomodoro timer, view dynamic progress analytics, and select custom Material 3 themes (Light, Dark, Sunset).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
