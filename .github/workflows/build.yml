@@ -23,7 +23,7 @@ jobs:
         run: echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" > .env
 
       - name: Make gradlew executable
-        run: gradle wrapper
+        run: chmod +x gradlew
 
       - name: Build APK
         run: ./gradlew assembleDebug
