@@ -34,7 +34,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.PlannerViewModel
+import com.example.ui.SnackbarEvent
+import com.example.ui.Translations
 import com.example.ui.components.*
+import com.example.ui.screens.ExamScreen
 import com.example.ui.theme.AppTheme
 import com.example.ui.theme.MyApplicationTheme
 import java.util.Locale
@@ -59,128 +62,160 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun PlannerMainShell(viewModel: PlannerViewModel) {
     val currentTab by viewModel.currentTab.collectAsState()
     val isRightPanelOpen by viewModel.isRightPanelOpen.collectAsState()
     val isFocusDimMode by viewModel.isPomodoroFocusMode.collectAsState()
     val timerRunning by viewModel.isPomodoroRunning.collectAsState()
+    val lang by viewModel.selectedLanguage.collectAsState()
 
     val configuration = LocalConfiguration.current
     val isLargeScreen = configuration.screenWidthDp > 600
     val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .drawBehind {
-                // Base background fill
-                drawRect(color = colorScheme.background)
+    val snackbarHostState = remember { SnackbarHostState() }
 
-                // Large smooth radial glow - Indigo/Primary Top Left
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            colorScheme.primary.copy(alpha = 0.22f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * -0.1f, size.height * -0.1f),
-                        radius = size.minDimension * 0.95f
-                    ),
-                    radius = size.minDimension * 0.95f,
-                    center = Offset(size.width * -0.1f, size.height * -0.1f)
-                )
-
-                // Large smooth radial glow - Violet/Secondary Bottom Right
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            colorScheme.secondary.copy(alpha = 0.18f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * 1.1f, size.height * 0.9f),
-                        radius = size.minDimension * 0.95f
-                    ),
-                    radius = size.minDimension * 0.95f,
-                    center = Offset(size.width * 1.1f, size.height * 0.9f)
-                )
-
-                // Moderate smooth radial glow - Tertiary Left Center
-                drawCircle(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            colorScheme.tertiary.copy(alpha = 0.12f),
-                            Color.Transparent
-                        ),
-                        center = Offset(size.width * -0.2f, size.height * 0.5f),
-                        radius = size.minDimension * 0.7f
-                    ),
-                    radius = size.minDimension * 0.7f,
-                    center = Offset(size.width * -0.2f, size.height * 0.5f)
-                )
-            }
-    ) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            // LEFT NAVIGATION SIDEBAR (Only displayed on Medium/Expanded screen widths)
-            if (isLargeScreen) {
-                PlannerSidebar(
-                    activeTab = currentTab,
-                    onTabSelected = { viewModel.currentTab.value = it }
-                )
-            }
-
-            // PRIMARY DATA & VIEWPORT COLUMN
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .padding(bottom = if (!isLargeScreen) 80.dp else 0.dp) // Bottom padding for Mobile BottomNav
-            ) {
-                // TOP ACTION AND USER DETAILS BAR
-                PlannerTopBar(viewModel = viewModel)
-
-                // ACTIVE VIEW CONTAINER CHOSEN
-                Box(modifier = Modifier.weight(1f)) {
-                    when (currentTab) {
-                        "Today" -> TodayPlannerView(viewModel)
-                        "Upcoming" -> UpcomingView(viewModel)
-                        "Calendar" -> CalendarView(viewModel)
-                        "Stats" -> StatsDashboard(viewModel)
-                        "Settings" -> SettingsPanel(viewModel)
+    LaunchedEffect(viewModel) {
+        viewModel.snackbarEvent.collect { event ->
+            when (event) {
+                is SnackbarEvent.Show -> {
+                    val result = snackbarHostState.showSnackbar(
+                        message = event.message,
+                        actionLabel = event.actionLabel,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        event.onAction?.invoke()
                     }
                 }
             }
-
-            // COLLAPSIBLE RIGHT WORKSPACE DETAILS/TIMER PANEL
-            AnimatedVisibility(
-                visible = isRightPanelOpen,
-                enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
-                exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
-            ) {
-                TaskDetailsPanel(
-                    viewModel = viewModel,
-                    modifier = Modifier.width(if (isLargeScreen) 380.dp else 300.dp)
-                )
-            }
         }
+    }
 
-        // MOBILE PERSISTENT BOTTOM TAB NAVIGATION BAR (Compact display modes)
-        if (!isLargeScreen) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-            ) {
-                PlannerBottomNavBar(
-                    activeTab = currentTab,
-                    onTabSelected = { viewModel.currentTab.value = it }
-                )
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        containerColor = Color.Transparent,
+        modifier = Modifier.fillMaxSize()
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .drawBehind {
+                    // Base background fill
+                    drawRect(color = colorScheme.background)
+
+                    // Large smooth radial glow - Indigo/Primary Top Left
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                colorScheme.primary.copy(alpha = 0.22f),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width * -0.1f, size.height * -0.1f),
+                            radius = size.minDimension * 0.95f
+                        ),
+                        radius = size.minDimension * 0.95f,
+                        center = Offset(size.width * -0.1f, size.height * -0.1f)
+                    )
+
+                    // Large smooth radial glow - Violet/Secondary Bottom Right
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                colorScheme.secondary.copy(alpha = 0.18f),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width * 1.1f, size.height * 0.9f),
+                            radius = size.minDimension * 0.95f
+                        ),
+                        radius = size.minDimension * 0.95f,
+                        center = Offset(size.width * 1.1f, size.height * 0.9f)
+                    )
+
+                    // Moderate smooth radial glow - Tertiary Left Center
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                colorScheme.tertiary.copy(alpha = 0.12f),
+                                Color.Transparent
+                            ),
+                            center = Offset(size.width * -0.2f, size.height * 0.5f),
+                            radius = size.minDimension * 0.7f
+                        ),
+                        radius = size.minDimension * 0.7f,
+                        center = Offset(size.width * -0.2f, size.height * 0.5f)
+                    )
+                }
+        ) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                // LEFT NAVIGATION SIDEBAR (Only displayed on Medium/Expanded screen widths)
+                if (isLargeScreen) {
+                    PlannerSidebar(
+                        activeTab = currentTab,
+                        onTabSelected = { viewModel.currentTab.value = it },
+                        viewModel = viewModel
+                    )
+                }
+
+                // PRIMARY DATA & VIEWPORT COLUMN
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .padding(bottom = if (!isLargeScreen) 80.dp else 0.dp) // Bottom padding for Mobile BottomNav
+                ) {
+                    // TOP ACTION AND USER DETAILS BAR
+                    PlannerTopBar(viewModel = viewModel)
+
+                    // ACTIVE VIEW CONTAINER CHOSEN
+                    Box(modifier = Modifier.weight(1f)) {
+                        when (currentTab) {
+                            "Today" -> TodayPlannerView(viewModel)
+                            "Upcoming" -> UpcomingView(viewModel)
+                            "Calendar" -> CalendarView(viewModel)
+                            "Exam" -> ExamScreen()
+                            "Stats" -> StatsDashboard(viewModel)
+                            "Settings" -> SettingsPanel(viewModel)
+                            "Habits" -> HabitTrackerView(viewModel)
+                        }
+                    }
+                }
+
+                // COLLAPSIBLE RIGHT WORKSPACE DETAILS/TIMER PANEL
+                AnimatedVisibility(
+                    visible = isRightPanelOpen,
+                    enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
+                    exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
+                ) {
+                    TaskDetailsPanel(
+                        viewModel = viewModel,
+                        modifier = Modifier.width(if (isLargeScreen) 380.dp else 300.dp)
+                    )
+                }
             }
-        }
 
-        // IMMERSIVE COOLDOWN DIM OVERLAY (Focus Mode)
-        if (isFocusDimMode && timerRunning) {
-            FocusOverlayDimScreen(viewModel = viewModel)
+            // MOBILE PERSISTENT BOTTOM TAB NAVIGATION BAR (Compact display modes)
+            if (!isLargeScreen) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                ) {
+                    PlannerBottomNavBar(
+                        activeTab = currentTab,
+                        onTabSelected = { viewModel.currentTab.value = it },
+                        viewModel = viewModel
+                    )
+                }
+            }
+
+            // IMMERSIVE COOLDOWN DIM OVERLAY (Focus Mode)
+            if (isFocusDimMode && timerRunning) {
+                FocusOverlayDimScreen(viewModel = viewModel)
+            }
         }
     }
 }
@@ -284,6 +319,7 @@ fun PlannerTopBar(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TodayPlannerView(
     viewModel: PlannerViewModel,
@@ -293,6 +329,7 @@ fun TodayPlannerView(
     val selectedDate by viewModel.selectedDate.collectAsState()
     val selectedTask by viewModel.selectedTask.collectAsState()
     val aiReview by viewModel.aiDailyReviewText.collectAsState()
+    val lang by viewModel.selectedLanguage.collectAsState()
 
     val completedTasks = tasks.filter { it.isCompleted }
     val totalCount = tasks.size
@@ -329,12 +366,12 @@ fun TodayPlannerView(
                     ) {
                         Column {
                             Text(
-                                text = "Focus Target: $selectedDate",
+                                text = Translations.get("focus_target", lang).format(selectedDate),
                                 fontWeight = FontWeight.Black,
                                 style = MaterialTheme.typography.titleSmall
                             )
                             Text(
-                                text = "Completed ${completedTasks.size} / $totalCount tasks today",
+                                text = Translations.get("completed_ratio", lang).format(completedTasks.size, totalCount),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                             )
@@ -365,14 +402,39 @@ fun TodayPlannerView(
         item {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "End of Day Review",
+                    text = Translations.get("end_of_day_review", lang),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                 )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // CLEAR COMPLETED BUTTON
+                Button(
+                    onClick = { viewModel.clearCompletedTodayTasks() },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f)),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.height(28.dp).testTag("clear_completed_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Clear completed",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = Translations.get("clear_completed_tasks", lang),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Button(
                     onClick = { viewModel.generateDailyReview() },
@@ -380,7 +442,12 @@ fun TodayPlannerView(
                     contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                     modifier = Modifier.height(28.dp)
                 ) {
-                    Text("Review Progress", fontSize = 10.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = Translations.get("review_progress", lang),
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -425,7 +492,7 @@ fun TodayPlannerView(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Inbox clear! Try writing or parsing tasks.",
+                            text = Translations.get("inbox_clear", lang),
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
@@ -433,13 +500,46 @@ fun TodayPlannerView(
                 }
             }
         } else {
-            items(tasks) { task ->
+            items(tasks, key = { it.id }) { task ->
                 val isSelected = selectedTask?.id == task.id
-                TaskRowItem(
-                    task = task,
-                    isSelected = isSelected,
-                    onToggleSelect = { viewModel.selectTask(task) },
-                    onToggleComplete = { viewModel.toggleTaskCompletion(task) }
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
+                            viewModel.deleteCurrentTask(task)
+                        }
+                        false
+                    }
+                )
+
+                SwipeToDismissBox(
+                    state = dismissState,
+                    backgroundContent = {
+                        val color = MaterialTheme.colorScheme.errorContainer
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(color)
+                                .padding(horizontal = 20.dp),
+                            contentAlignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) 
+                                Alignment.CenterStart else Alignment.CenterEnd
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        }
+                    },
+                    modifier = Modifier.animateItem(),
+                    content = {
+                        TaskRowItem(
+                            task = task,
+                            isSelected = isSelected,
+                            onToggleSelect = { viewModel.selectTask(task) },
+                            onToggleComplete = { viewModel.toggleTaskCompletion(task) }
+                        )
+                    }
                 )
             }
         }
@@ -495,14 +595,18 @@ fun FocusOverlayDimScreen(
 fun PlannerSidebar(
     activeTab: String,
     onTabSelected: (String) -> Unit,
+    viewModel: PlannerViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang by viewModel.selectedLanguage.collectAsState()
     val navItems = listOf(
-        Pair("Today", Icons.Default.EventNote),
-        Pair("Upcoming", Icons.Default.Splitscreen),
-        Pair("Calendar", Icons.Default.CalendarMonth),
-        Pair("Stats", Icons.Default.Analytics),
-        Pair("Settings", Icons.Default.Settings)
+        Triple("Today", Icons.Default.EventNote, "today"),
+        Triple("Upcoming", Icons.Default.Splitscreen, "upcoming"),
+        Triple("Calendar", Icons.Default.CalendarMonth, "calendar"),
+        Triple("Exam", Icons.Default.School, "exam"),
+        Triple("Stats", Icons.Default.Analytics, "stats"),
+        Triple("Habits", Icons.Default.Star, "habits"),
+        Triple("Settings", Icons.Default.Settings, "settings")
     )
 
     NavigationRail(
@@ -522,7 +626,7 @@ fun PlannerSidebar(
     ) {
         Spacer(modifier = Modifier.height(24.dp))
 
-        navItems.forEach { (tab, icon) ->
+        navItems.forEach { (tab, icon, transKey) ->
             val isSelected = activeTab == tab
             NavigationRailItem(
                 selected = isSelected,
@@ -536,7 +640,7 @@ fun PlannerSidebar(
                         )
                     )
                 },
-                label = { Text(tab, fontSize = 11.sp) },
+                label = { Text(Translations.get(transKey, lang), fontSize = 11.sp) },
                 alwaysShowLabel = true,
                 modifier = Modifier.padding(vertical = 4.dp).testTag("rail_tab_$tab")
             )
@@ -548,14 +652,18 @@ fun PlannerSidebar(
 fun PlannerBottomNavBar(
     activeTab: String,
     onTabSelected: (String) -> Unit,
+    viewModel: PlannerViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang by viewModel.selectedLanguage.collectAsState()
     val navItems = listOf(
-        Pair("Today", Icons.Default.EventNote),
-        Pair("Upcoming", Icons.Default.Splitscreen),
-        Pair("Calendar", Icons.Default.CalendarMonth),
-        Pair("Stats", Icons.Default.Analytics),
-        Pair("Settings", Icons.Default.Settings)
+        Triple("Today", Icons.Default.EventNote, "today"),
+        Triple("Upcoming", Icons.Default.Splitscreen, "upcoming"),
+        Triple("Calendar", Icons.Default.CalendarMonth, "calendar"),
+        Triple("Exam", Icons.Default.School, "exam"),
+        Triple("Stats", Icons.Default.Analytics, "stats"),
+        Triple("Habits", Icons.Default.Star, "habits"),
+        Triple("Settings", Icons.Default.Settings, "settings")
     )
 
     NavigationBar(
@@ -574,7 +682,7 @@ fun PlannerBottomNavBar(
             .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .navigationBarsPadding()
     ) {
-        navItems.forEach { (tab, icon) ->
+        navItems.forEach { (tab, icon, transKey) ->
             val isSelected = activeTab == tab
             NavigationBarItem(
                 selected = isSelected,
@@ -588,7 +696,7 @@ fun PlannerBottomNavBar(
                         )
                     )
                 },
-                label = { Text(tab, fontSize = 10.sp) },
+                label = { Text(Translations.get(transKey, lang), fontSize = 10.sp) },
                 modifier = Modifier.testTag("bottom_tab_$tab")
             )
         }
@@ -706,6 +814,7 @@ fun SettingsPanel(
     viewModel: PlannerViewModel,
     modifier: Modifier = Modifier
 ) {
+    val lang by viewModel.selectedLanguage.collectAsState()
     var apiKeyText by remember { mutableStateOf(viewModel.getCustomApiKey()) }
     var customGoal by remember { mutableStateOf(viewModel.pomodoroGoal.value.toString()) }
     var statusFeedback by remember { mutableStateOf<String?>(null) }
@@ -718,12 +827,12 @@ fun SettingsPanel(
     ) {
         item {
             Text(
-                text = "Workspace Configuration",
+                text = Translations.get("workspace_conf", lang),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Fine-tune AI behavior and Pomodoro target rates.",
+                text = Translations.get("workspace_desc", lang),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
             )
@@ -765,7 +874,7 @@ fun SettingsPanel(
                     Button(
                         onClick = {
                             viewModel.setCustomApiKey(apiKeyText)
-                            statusFeedback = "Configuration successfully saved!"
+                            statusFeedback = "Configuration successfully saved! / Konfiqurasiya uğurla saxlanıldı!"
                         },
                         modifier = Modifier.align(Alignment.End).testTag("save_apikey_btn")
                     ) {
@@ -786,52 +895,97 @@ fun SettingsPanel(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "System Preferences",
+                        text = Translations.get("system_pref", lang),
                         fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.titleMedium
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // LANGUAGE TOGGLE BUTTONS
+                    Text(
+                        text = Translations.get("language_select", lang),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("EN" to "English", "AZ" to "Azərbaycan").forEach { (code, labelText) ->
+                            val isSelected = lang == code
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        RoundedCornerShape(10.dp)
+                                    )
+                                    .clickable {
+                                        viewModel.selectedLanguage.value = code
+                                    }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = labelText,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedTextField(
                         value = customGoal,
                         onValueChange = { customGoal = it },
-                        label = { Text("Daily Pomodoro sessions target") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text(Translations.get("daily_pomo_goal", lang)) },
+                        modifier = Modifier.fillMaxWidth().testTag("custom_goal_input")
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text("Automatic Task Archive", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            Text("Delete completed tasks older than 7 days", fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(Translations.get("auto_archive", lang), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(Translations.get("auto_archive_desc", lang), fontSize = 11.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
                         }
+                        Spacer(modifier = Modifier.width(6.dp))
                         Button(
                             onClick = {
                                 viewModel.archiveCompletedTasks(7)
-                                statusFeedback = "Older completed tasks archived!"
+                                statusFeedback = "Older completed tasks archived! / Köhnə tamamlanmış dərslər arxivləndi!"
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer)
                         ) {
-                            Text("Archive Now", fontSize = 11.sp)
+                            Text(Translations.get("archive_now", lang), fontSize = 11.sp)
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
                             val target = customGoal.toIntOrNull() ?: 4
                             viewModel.pomodoroGoal.value = target
-                            statusFeedback = "Preferences successfully updated!"
+                            statusFeedback = "Preferences successfully updated! / Tənzimləmələr uğurla yeniləndi!"
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().testTag("save_pref_btn")
                     ) {
-                        Text("Save System Preferences")
+                        Text(Translations.get("save_system_preferences", lang))
                     }
                 }
             }

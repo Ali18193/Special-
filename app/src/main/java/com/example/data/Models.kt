@@ -49,3 +49,13 @@ data class PomodoroSession(
     val timestamp: Long = System.currentTimeMillis(),
     val durationMinutes: Int = 25
 )
+
+@Entity(tableName = "habits")
+data class Habit(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val category: String = "Personal",
+    val streak: Int = 0,
+    val isCompletedToday: Boolean = false,
+    val emoji: String = "✨"
+)

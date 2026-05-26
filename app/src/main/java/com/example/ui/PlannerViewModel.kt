@@ -13,10 +13,31 @@ import kotlinx.coroutines.flow.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+sealed class SnackbarEvent {
+    data class Show(
+        val message: String,
+        val actionLabel: String? = null,
+        val onAction: (() -> Unit)? = null
+    ) : SnackbarEvent()
+}
+
 class PlannerViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getDatabase(application)
     private val repository = PlannerRepository(db.plannerDao())
+
+    // --- Language Translation state ---
+    val selectedLanguage = MutableStateFlow("EN") // EN or AZ
+
+    // --- Snackbar flow ---
+    private val _snackbarEvent = MutableSharedFlow<SnackbarEvent>()
+    val snackbarEvent = _snackbarEvent.asSharedFlow()
+
+    fun showSnackbar(message: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            _snackbarEvent.emit(SnackbarEvent.Show(message, actionLabel, onAction))
+        }
+    }
 
     // --- Preferences Keys / Mock Preferences for Applet simplicity ---
     private var customApiKey: String? = null
@@ -38,6 +59,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
 
     val todayTasks: StateFlow<List<Task>> = selectedDate
         .flatMapLatest { date -> repository.getTasksForDate(date) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allHabits: StateFlow<List<Habit>> = repository.getAllHabits()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val allPomodoros: StateFlow<List<PomodoroSession>> = repository.getAllPomodoroSessions()
@@ -79,12 +103,28 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             if (allTasks.value.isEmpty()) {
                 seedInitialData()
             }
+            allHabits.first { true } // await habits load
+            if (allHabits.value.isEmpty()) {
+                seedInitialHabits()
+            }
             calculateTodayPomodoroCount()
             triggerAiSuggestions()
         }
     }
 
     // --- Seed Data ---
+    private suspend fun seedInitialHabits() {
+        val seedHabits = listOf(
+            Habit(title = "Drink 8 glasses of water", category = "Health", streak = 5, isCompletedToday = false, emoji = "💧"),
+            Habit(title = "Read 15 pages", category = "Study", streak = 12, isCompletedToday = true, emoji = "📖"),
+            Habit(title = "Morning Meditation", category = "Personal", streak = 3, isCompletedToday = false, emoji = "🧘‍♂️"),
+            Habit(title = "Cardio Exercise", category = "Health", streak = 0, isCompletedToday = false, emoji = "🏃‍♂️")
+        )
+        for (h in seedHabits) {
+            repository.insertHabit(h)
+        }
+    }
+
     private suspend fun seedInitialData() {
         val today = "2026-05-22"
         val tomorrow = "2026-05-23"
@@ -228,13 +268,122 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // --- Task Deletion states for Undo ---
+    private var recentlyDeletedTask: Task? = null
+    private var recentlyDeletedSubtasks: List<Subtask> = emptyList()
+    private var recentlyClearedTasks: List<Task> = emptyList()
+
     fun deleteCurrentTask(task: Task) {
         viewModelScope.launch {
+            // Save state for undo
+            recentlyDeletedTask = task
+            recentlyDeletedSubtasks = repository.getSubtasksForTaskSync(task.id)
+            
             repository.deleteTask(task)
             if (selectedTask.value?.id == task.id) {
                 selectedTask.value = null
                 isRightPanelOpen.value = false
             }
+
+            // Fire undo snackbar
+            val msg = Translations.get("task_deleted_msg", selectedLanguage.value).format(task.title)
+            val undoLbl = Translations.get("undo", selectedLanguage.value)
+            showSnackbar(
+                message = msg,
+                actionLabel = undoLbl,
+                onAction = {
+                    undoTaskDelete()
+                }
+            )
+        }
+    }
+
+    fun undoTaskDelete() {
+        val task = recentlyDeletedTask ?: return
+        viewModelScope.launch {
+            val newId = repository.insertTask(task.copy(id = 0))
+            recentlyDeletedSubtasks.forEach { sub ->
+                repository.insertSubtask(sub.copy(id = 0, taskId = newId))
+            }
+            recentlyDeletedTask = null
+            recentlyDeletedSubtasks = emptyList()
+        }
+    }
+
+    fun clearCompletedTodayTasks() {
+        viewModelScope.launch {
+            val completed = todayTasks.value.filter { it.isCompleted }
+            if (completed.isEmpty()) return@launch
+            
+            recentlyClearedTasks = completed
+            completed.forEach {
+                repository.deleteTask(it)
+            }
+            
+            val msg = Translations.get("completed_cleared_msg", selectedLanguage.value)
+            val undoLbl = Translations.get("undo", selectedLanguage.value)
+            showSnackbar(
+                message = msg,
+                actionLabel = undoLbl,
+                onAction = {
+                    undoClearCompletedTasks()
+                }
+            )
+        }
+    }
+
+    fun undoClearCompletedTasks() {
+        val cleared = recentlyClearedTasks
+        if (cleared.isEmpty()) return
+        viewModelScope.launch {
+            cleared.forEach { task ->
+                repository.insertTask(task.copy(id = 0))
+            }
+            recentlyClearedTasks = emptyList()
+        }
+    }
+
+    // --- Habit Actions & State for Undo ---
+    private var recentlyDeletedHabit: Habit? = null
+
+    fun addHabit(title: String, category: String, emoji: String) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            val h = Habit(title = title, category = category, emoji = emoji, streak = 0, isCompletedToday = false)
+            repository.insertHabit(h)
+        }
+    }
+
+    fun toggleHabitCompletion(habit: Habit) {
+        viewModelScope.launch {
+            val nextCompleted = !habit.isCompletedToday
+            val nextStreak = if (nextCompleted) habit.streak + 1 else (habit.streak - 1).coerceAtLeast(0)
+            repository.updateHabit(habit.copy(isCompletedToday = nextCompleted, streak = nextStreak))
+        }
+    }
+
+    fun deleteHabit(habit: Habit) {
+        viewModelScope.launch {
+            recentlyDeletedHabit = habit
+            repository.deleteHabit(habit)
+            
+            val msg = Translations.get("habit_deleted_msg", selectedLanguage.value).format(habit.title)
+            val undoLbl = Translations.get("undo", selectedLanguage.value)
+            showSnackbar(
+                message = msg,
+                actionLabel = undoLbl,
+                onAction = {
+                    undoHabitDelete()
+                }
+            )
+        }
+    }
+
+    fun undoHabitDelete() {
+        val habit = recentlyDeletedHabit ?: return
+        viewModelScope.launch {
+            repository.insertHabit(habit.copy(id = 0))
+            recentlyDeletedHabit = null
         }
     }
 

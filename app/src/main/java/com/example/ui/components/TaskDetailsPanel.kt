@@ -41,6 +41,7 @@ import com.example.data.Subtask
 import com.example.data.Task
 import java.util.Locale
 import com.example.ui.PlannerViewModel
+import com.example.ui.Translations
 import com.example.ui.theme.GradientEnd
 import com.example.ui.theme.GradientStart
 
@@ -51,6 +52,7 @@ fun TaskDetailsPanel(
 ) {
     val task by viewModel.selectedTask.collectAsState()
     val subtasks by viewModel.currentSubtasks.collectAsState()
+    val lang by viewModel.selectedLanguage.collectAsState()
     var newSubtaskText by remember { mutableStateOf("") }
     var isOriginalTextCollapsed by remember { mutableStateOf(true) }
 
@@ -79,13 +81,14 @@ fun TaskDetailsPanel(
                     modifier = Modifier.size(64.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+                // Localized fallback details
                 Text(
-                    text = "Flow Timer",
+                    text = Translations.get("flow_timer", lang),
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Select any task to configure subtasks or log direct focus minutes against it.",
+                    text = Translations.get("flow_timer_desc", lang),
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
@@ -128,7 +131,7 @@ fun TaskDetailsPanel(
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Task Workspace",
+                text = Translations.get("task_workspace", lang),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.primary
             )
@@ -182,7 +185,7 @@ fun TaskDetailsPanel(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Planned: ${activeTask.date}",
+                                text = "${Translations.get("planned", lang)}: ${activeTask.date}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                             )
@@ -215,7 +218,7 @@ fun TaskDetailsPanel(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "AI Note Feed Extract",
+                                text = Translations.get("ai_note_extract", lang),
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -236,7 +239,7 @@ fun TaskDetailsPanel(
             item {
                 Column {
                     Text(
-                        text = "Quick Reschedule",
+                        text = Translations.get("quick_reschedule", lang),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                     )
@@ -246,10 +249,11 @@ fun TaskDetailsPanel(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         listOf(
-                            "Today" to "2026-05-22",
-                            "Tomorrow" to "2026-05-23",
-                            "Next Monday" to "2026-05-25"
-                        ).forEach { (label, dateVal) ->
+                            Triple("Today", "today", "2026-05-22"),
+                            Triple("Tomorrow", "tomorrow", "2026-04-23"), // Keep value as dummy or dynamic reschedule date
+                            Triple("Next Monday", "next_monday", "2026-05-25")
+                        ).forEach { (fallbackLabel, transKey, dateVal) ->
+                            val actualLabel = Translations.get(transKey, lang)
                             val isCurrentDate = activeTask.date == dateVal
                             OutlinedButton(
                                 onClick = { viewModel.rescheduleTask(activeTask, dateVal) },
@@ -258,7 +262,7 @@ fun TaskDetailsPanel(
                                 contentPadding = PaddingValues(2.dp)
                             ) {
                                 Text(
-                                    text = label,
+                                    text = actualLabel,
                                     fontSize = 11.sp,
                                     fontWeight = if (isCurrentDate) FontWeight.Bold else FontWeight.Normal,
                                     color = if (isCurrentDate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground
@@ -273,7 +277,7 @@ fun TaskDetailsPanel(
             item {
                 Column {
                     Text(
-                        text = "Subtasks / Checklists",
+                        text = Translations.get("subtasks_checklist", lang),
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                     )
@@ -282,7 +286,7 @@ fun TaskDetailsPanel(
                     OutlinedTextField(
                         value = newSubtaskText,
                         onValueChange = { newSubtaskText = it },
-                        placeholder = { Text("Add critical subtask...", fontSize = 13.sp) },
+                        placeholder = { Text(Translations.get("add_critical_subtask", lang), fontSize = 13.sp) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("add_subtask_input"),
@@ -361,7 +365,7 @@ fun TaskDetailsPanel(
                         Icon(imageVector = Icons.Default.Timer, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Linked Pomodoro Workspace",
+                            text = Translations.get("linked_pomo_workspace", lang),
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
                         )
@@ -387,6 +391,7 @@ fun PomodoroCircularClock(
     val totalGoal by viewModel.pomodoroGoal.collectAsState()
     val completedCount by viewModel.pomodoroLoggedCompleted.collectAsState()
     val autoStartNext by viewModel.autoStartNext.collectAsState()
+    val lang by viewModel.selectedLanguage.collectAsState()
 
     val formattedTime = String.format(Locale.getDefault(), "%02d:%02d", secondsLeft / 60, secondsLeft % 60)
 
@@ -414,13 +419,13 @@ fun PomodoroCircularClock(
             modifier = Modifier.fillMaxWidth()
         ) {
             listOf(
-                Triple("Work", 25, "Work"),
-                Triple("Short Break", 5, "Short Break"),
-                Triple("Long Break", 15, "Long Break")
-            ).forEach { (label, min, mode) ->
-                val active = timerMode == mode
+                Triple("Work", 25, "work_mode"),
+                Triple("Short Break", 5, "short_break"),
+                Triple("Long Break", 15, "long_break")
+            ).forEach { (modeLabel, min, transKey) ->
+                val active = timerMode == modeLabel
                 OutlinedButton(
-                    onClick = { viewModel.configurePomodoro(min, mode) },
+                    onClick = { viewModel.configurePomodoro(min, modeLabel) },
                     border = BorderStroke(
                         width = if (active) 1.5.dp else 1.dp,
                         color = if (active) progressColor else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
@@ -432,7 +437,7 @@ fun PomodoroCircularClock(
                     )
                 ) {
                     Text(
-                        text = label,
+                        text = Translations.get(transKey, lang),
                         fontSize = 10.sp,
                         fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                         color = if (active) progressColor else MaterialTheme.colorScheme.onBackground

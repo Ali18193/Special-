@@ -53,4 +53,17 @@ interface PlannerDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertPomodoroSession(session: PomodoroSession): Long
+
+    // --- Habit Queries ---
+    @Query("SELECT * FROM habits ORDER BY id DESC")
+    fun getAllHabits(): Flow<List<Habit>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHabit(habit: Habit): Long
+
+    @Update
+    suspend fun updateHabit(habit: Habit)
+
+    @Delete
+    suspend fun deleteHabit(habit: Habit)
 }

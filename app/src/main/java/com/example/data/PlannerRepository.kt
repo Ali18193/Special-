@@ -33,4 +33,13 @@ class PlannerRepository(private val plannerDao: PlannerDao) {
     fun getAllPomodoroSessions(): Flow<List<PomodoroSession>> = plannerDao.getAllPomodoroSessions()
 
     suspend fun insertPomodoroSession(session: PomodoroSession): Long = plannerDao.insertPomodoroSession(session)
+
+    // --- Habit Actions ---
+    fun getAllHabits(): Flow<List<Habit>> = plannerDao.getAllHabits()
+
+    suspend fun insertHabit(habit: Habit): Long = plannerDao.insertHabit(habit)
+
+    suspend fun updateHabit(habit: Habit) = plannerDao.updateHabit(habit)
+
+    suspend fun deleteHabit(habit: Habit) = plannerDao.deleteHabit(habit)
 }
