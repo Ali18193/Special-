@@ -176,7 +176,7 @@ fun PlannerMainShell(viewModel: PlannerViewModel) {
                             "Today" -> TodayPlannerView(viewModel)
                             "Upcoming" -> UpcomingView(viewModel)
                             "Calendar" -> CalendarView(viewModel)
-                            "Exam" -> ExamScreen()
+                            "Exam" -> ExamScreen(viewModel = viewModel)
                             "Stats" -> StatsDashboard(viewModel)
                             "Settings" -> SettingsPanel(viewModel)
                             "Habits" -> HabitTrackerView(viewModel)
@@ -506,8 +506,10 @@ fun TodayPlannerView(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
                             viewModel.deleteCurrentTask(task)
+                            true
+                        } else {
+                            false
                         }
-                        false
                     }
                 )
 
@@ -696,7 +698,16 @@ fun PlannerBottomNavBar(
                         )
                     )
                 },
-                label = { Text(Translations.get(transKey, lang), fontSize = 10.sp) },
+                label = { 
+                    Text(
+                        text = Translations.get(transKey, lang),
+                        fontSize = 9.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    ) 
+                },
+                alwaysShowLabel = false,
                 modifier = Modifier.testTag("bottom_tab_$tab")
             )
         }

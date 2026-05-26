@@ -59,3 +59,19 @@ data class Habit(
     val isCompletedToday: Boolean = false,
     val emoji: String = "✨"
 )
+
+@com.squareup.moshi.JsonClass(generateAdapter = true)
+data class ExamTopic(
+    val name: String,
+    val isDone: Boolean = false
+)
+
+@Entity(tableName = "exams")
+data class Exam(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val subject: String,
+    val emoji: String,
+    val dateMs: Long,
+    val topics: List<ExamTopic>,
+    val colorIndex: Int
+)

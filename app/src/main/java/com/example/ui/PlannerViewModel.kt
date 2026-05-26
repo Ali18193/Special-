@@ -67,6 +67,9 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
     val allPomodoros: StateFlow<List<PomodoroSession>> = repository.getAllPomodoroSessions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allExams: StateFlow<List<Exam>> = repository.getAllExams()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Subtasks for the currently selected task
     val currentSubtasks = selectedTask
         .flatMapLatest { task ->
@@ -106,6 +109,10 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             allHabits.first { true } // await habits load
             if (allHabits.value.isEmpty()) {
                 seedInitialHabits()
+            }
+            allExams.first { true } // await exams load
+            if (allExams.value.isEmpty()) {
+                seedInitialExams()
             }
             calculateTodayPomodoroCount()
             triggerAiSuggestions()
@@ -568,6 +575,87 @@ class PlannerViewModel(application: Application) : AndroidViewModel(application)
             for (t in outdated) {
                 repository.deleteTask(t)
             }
+        }
+    }
+
+    private suspend fun seedInitialExams() {
+        val seedExams = listOf(
+            Exam(
+                subject = "Riyaziyyat",
+                emoji = "📐",
+                dateMs = System.currentTimeMillis() + 5L * 24 * 3600 * 1000,
+                topics = listOf(
+                    ExamTopic("İnteqral"),
+                    ExamTopic("Diferensial tənliklər"),
+                    ExamTopic("Ardıcıllıqlar")
+                ),
+                colorIndex = 0
+            ),
+            Exam(
+                subject = "Fizika",
+                emoji = "⚛️",
+                dateMs = System.currentTimeMillis() + 12L * 24 * 3600 * 1000,
+                topics = listOf(
+                    ExamTopic("Mexanika"),
+                    ExamTopic("Elektrik"),
+                    ExamTopic("Optika"),
+                    ExamTopic("Termodinamika")
+                ),
+                colorIndex = 1
+            ),
+            Exam(
+                subject = "İngilis dili",
+                emoji = "🌍",
+                dateMs = System.currentTimeMillis() + 3L * 24 * 3600 * 1000,
+                topics = listOf(
+                    ExamTopic("Grammar"),
+                    ExamTopic("Reading"),
+                    ExamTopic("Writing")
+                ),
+                colorIndex = 7
+            )
+        )
+        for (e in seedExams) {
+            repository.insertExam(e)
+        }
+    }
+
+    fun addExam(subject: String, emoji: String, daysUntil: Int, topics: List<String>, colorIndex: Int) {
+        viewModelScope.launch {
+            val exam = Exam(
+                subject = subject,
+                emoji = emoji,
+                dateMs = System.currentTimeMillis() + daysUntil.toLong() * 24 * 60 * 60 * 1000,
+                topics = topics.map { ExamTopic(it) },
+                colorIndex = colorIndex
+            )
+            repository.insertExam(exam)
+        }
+    }
+
+    fun deleteExam(exam: Exam) {
+        viewModelScope.launch {
+            repository.deleteExam(exam)
+        }
+    }
+
+    fun toggleExamTopic(examId: Long, topicName: String) {
+        viewModelScope.launch {
+            val exam = allExams.value.find { it.id == examId } ?: return@launch
+            val updated = exam.topics.map {
+                if (it.name == topicName) it.copy(isDone = !it.isDone) else it
+            }
+            repository.updateExam(exam.copy(topics = updated))
+        }
+    }
+
+    fun markExamTopicAsDone(examId: Long, topicName: String) {
+        viewModelScope.launch {
+            val exam = allExams.value.find { it.id == examId } ?: return@launch
+            val updated = exam.topics.map {
+                if (it.name == topicName) it.copy(isDone = true) else it
+            }
+            repository.updateExam(exam.copy(topics = updated))
         }
     }
 }

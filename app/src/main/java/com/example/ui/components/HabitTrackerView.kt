@@ -242,8 +242,10 @@ fun HabitTrackerView(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
                             viewModel.deleteHabit(habit)
+                            true
+                        } else {
+                            false
                         }
-                        false
                     }
                 )
 

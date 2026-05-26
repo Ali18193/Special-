@@ -42,4 +42,16 @@ class PlannerRepository(private val plannerDao: PlannerDao) {
     suspend fun updateHabit(habit: Habit) = plannerDao.updateHabit(habit)
 
     suspend fun deleteHabit(habit: Habit) = plannerDao.deleteHabit(habit)
+
+    // --- Exam Actions ---
+    fun getAllExams(): Flow<List<Exam>> = plannerDao.getAllExams()
+
+    suspend fun insertExam(exam: Exam): Long = plannerDao.insertExam(exam)
+
+    suspend fun updateExam(exam: Exam) = plannerDao.updateExam(exam)
+
+    suspend fun deleteExam(exam: Exam) = plannerDao.deleteExam(exam)
+
+    suspend fun deleteExamById(id: Long) = plannerDao.deleteExamById(id)
 }
+

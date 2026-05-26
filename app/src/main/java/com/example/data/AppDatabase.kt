@@ -4,12 +4,14 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
 @Database(
-    entities = [Task::class, Subtask::class, PomodoroSession::class, Habit::class],
-    version = 2,
+    entities = [Task::class, Subtask::class, PomodoroSession::class, Habit::class, Exam::class],
+    version = 3,
     exportSchema = false
 )
+@TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun plannerDao(): PlannerDao
 

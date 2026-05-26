@@ -66,4 +66,21 @@ interface PlannerDao {
 
     @Delete
     suspend fun deleteHabit(habit: Habit)
+
+    // --- Exam Queries ---
+    @Query("SELECT * FROM exams ORDER BY dateMs ASC")
+    fun getAllExams(): Flow<List<Exam>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertExam(exam: Exam): Long
+
+    @Update
+    suspend fun updateExam(exam: Exam)
+
+    @Delete
+    suspend fun deleteExam(exam: Exam)
+
+    @Query("DELETE FROM exams WHERE id = :id")
+    suspend fun deleteExamById(id: Long)
 }
+
